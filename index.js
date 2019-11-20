@@ -8,7 +8,7 @@ var relative = require('path').relative;
 var sep = require('path').sep;
 var home = require('user-home');
 
-var mismatchRe = /Module version mismatch/;
+var mismatchRe = /(Module version mismatch|different Node.js version)/;
 var winRe = /A dynamic link library \(DLL\) initialization routine failed/;
 var gypHome = join(home, '.node-gyp');
 
@@ -40,12 +40,16 @@ function patch(opts){
         && (reg.test(pkg.scripts.install) || reg.test(pkg.scripts.prebuild));
       var ps;
 
+      let isElectron = !!process.versions.electron;
+      let target = isElectron ? process.versions.electron : process.versions.node;
+      let abi = process.versions.modules;
+
       if (prebuild) {
         var bin = join(require.resolve('prebuild'), '../bin.js');
         ps = spawnSync(bin, [
           '--install',
-          '--abi=' + process.versions.modules,
-          '--target=' + process.versions.node
+          '--abi=' + abi,
+          '--target=' + target
         ], {
           cwd: path,
           stdio: 'inherit'
@@ -53,7 +57,9 @@ function patch(opts){
       } else {
         ps = spawnSync('node-gyp', [
           'rebuild',
-          '--target=' + process.versions.node
+          '--target=' + target,
+          '--arch=x64',
+          isElectron ? '--dist-url=https://electronjs.org/headers' : ''
         ], {
           cwd: path,
           env: extend(process.env, {
